@@ -1,0 +1,20 @@
+# =============================================================================
+# ADS-B REST Sensor Configuration
+# =============================================================================
+# This sensor pulls aircraft data from your local tar1090 ADS-B receiver.
+# Replace the IP address with your tar1090 server's IP address.
+#
+# Add this to your configuration.yaml:
+#   rest: !include rest_sensor.yaml
+#
+# Or if you already have a rest: section, add this platform to it.
+# =============================================================================
+
+- platform: rest
+  name: "ADSB Aircraft Raw"
+  resource: http://192.168.1.77/tar1090/data/aircraft.json  # CHANGE THIS TO YOUR TAR1090 IP
+  scan_interval: 5  # Poll every 5 seconds
+  timeout: 10
+  value_template: "{{ value_json.aircraft | count }}"
+  json_attributes:
+    - aircraft

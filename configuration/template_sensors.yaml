@@ -1,0 +1,66 @@
+# =============================================================================
+# ADS-B Template Sensors Configuration
+# =============================================================================
+# These sensors process the raw aircraft data from tar1090 into usable formats
+# for the dashboard and automation.
+#
+# Add this to your configuration.yaml:
+#   template: !include template_sensors.yaml
+#
+# Or if you already have a template: section, add these sensors to it.
+# =============================================================================
+
+- sensor:
+    # -------------------------------------------------------------------------
+    # ADSB Local Aircraft Simplified
+    # -------------------------------------------------------------------------
+    # Main sensor - cleans and simplifies aircraft data for use in automation
+    # State: Count of aircraft
+    # Attributes: Cleaned array with flight, alt_baro, alt_geom, lat, lon
+    # -------------------------------------------------------------------------
+    - name: "ADSB Local Aircraft Simplified"
+      unique_id: adsb_local_aircraft_simplified
+      icon: mdi:airplane
+      state: >
+        {% set ac = state_attr('sensor.adsb_aircraft_raw', 'aircraft') %}
+        {{ ac | count if ac else 0 }}
+      attributes:
+        aircraft: >
+          {% set ac = state_attr('sensor.adsb_aircraft_raw','aircraft') | default([], true) %}
+          {% set cleaned = namespace(data=[]) %}
+          {% for a in ac %}
+            {% set cleaned.data = cleaned.data + [{
+              'flight': a.get('flight', 'Unknown') | trim,
+              'alt_baro': a.get('alt_baro', 0),
+              'alt_geom': a.get('alt_geom', 0),
+              'lat': a.get('lat', none),
+              'lon': a.get('lon', none)
+            }] %}
+          {% endfor %}
+          {{ cleaned.data }}
+
+    # -------------------------------------------------------------------------
+    # ADSB Aircraft Below Filter Altitude
+    # -------------------------------------------------------------------------
+    # Counts aircraft below the altitude threshold
+    # Used in the "Flights Below Threshold" dashboard card
+    # -------------------------------------------------------------------------
+    - name: "ADSB Aircraft Below Filter Altitude"
+      unique_id: adsb_below_selected_altitude
+      unit_of_measurement: "flights"
+      icon: mdi:airplane-alert
+      state: >
+        {% set ac = state_attr('sensor.adsb_aircraft_raw','aircraft') %}
+        {% if ac %}
+          {% set limit = states('input_number.adsb_altitude_threshold') | int(0) %}
+          {{ ac
+              | selectattr('alt_baro','defined')
+              | rejectattr('alt_baro','equalto','unknown')
+              | rejectattr('alt_baro','equalto','unavailable')
+              | selectattr('alt_baro','lt', limit)
+              | list
+              | count
+          }}
+        {% else %}
+          0
+        {% endif %}

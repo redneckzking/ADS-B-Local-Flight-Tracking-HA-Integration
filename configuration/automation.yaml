@@ -1,0 +1,128 @@
+# =============================================================================
+# ADS-B Aircraft Announcement Automation
+# =============================================================================
+# Announces aircraft flying near your home when they meet altitude and
+# distance criteria.
+#
+# REQUIREMENTS:
+# - Helpers created (see helpers/required_helpers.md)
+# - Template sensors configured
+# - TTS platform configured (Piper or other)
+# - Media player group configured
+# - Device tracker for presence detection
+#
+# CUSTOMIZE:
+# - Change device_tracker entity to your phone/device
+# - Change media_player_entity_id to your speaker group
+# - Change tts entity if not using Piper
+# - Adjust default thresholds in variables section
+# =============================================================================
+
+alias: "Action: ADSB – Announce Aircraft (Local Feed)"
+description: Announce aircraft flying nearby based on altitude and distance thresholds
+mode: restart
+
+triggers:
+  # Trigger when aircraft data updates
+  - trigger: state
+    entity_id: sensor.adsb_local_aircraft_simplified
+  
+  # Also poll every 20 seconds as a safety net
+  - trigger: time_pattern
+    seconds: /20
+
+variables:
+  # Maximum altitude to announce (feet)
+  max_alt: |
+    {{ states('input_number.adsb_altitude_threshold') | float(15000) }}
+  
+  # Maximum distance to announce (miles)
+  max_distance_miles: |
+    {{ states('input_number.adsb_distance_threshold') | float(50) }}
+  
+  # Check if announcements are enabled
+  announcements_enabled: |
+    {{ is_state('input_boolean.adsb_announcements_enabled', 'on') }}
+  
+  # Get the last announced callsign (for cooldown)
+  last_callsign: |
+    {{ states('input_text.adsb_last_announced_flight') | default('') }}
+  
+  # Get aircraft array from sensor
+  aircraft: >
+    {{ state_attr('sensor.adsb_local_aircraft_simplified', 'aircraft') | default([], true) }}
+
+conditions:
+  # Only run if announcements are enabled
+  - condition: template
+    value_template: "{{ announcements_enabled }}"
+  
+  # Only run when you're home (CUSTOMIZE THIS ENTITY)
+  - condition: state
+    entity_id: device_tracker.pixel_10_pro_xl  # CHANGE TO YOUR DEVICE TRACKER
+    state: home
+  
+  # Only run if there are aircraft to process
+  - condition: template
+    value_template: "{{ aircraft | length > 0 }}"
+
+actions:
+  - repeat:
+      count: "{{ aircraft | length }}"
+      sequence:
+        - variables:
+            # Get current aircraft from array
+            ac: "{{ aircraft[repeat.index - 1] }}"
+            
+            # Extract and clean callsign
+            callsign: "{{ (ac.flight | default('Unknown')) | string | trim }}"
+            
+            # Get altitude (prefer geometric, fallback to barometric)
+            alt_ft: "{{ (ac.alt_geom or ac.alt_baro or 0) | float(0) }}"
+            
+            # Calculate distance from home to aircraft (in miles)
+            # Returns 999999 if lat/lon are missing
+            distance_miles: >
+              {% set lat = ac.lat %}
+              {% set lon = ac.lon %}
+              {% if lat is not none and lon is not none %}
+                {{ distance('zone.home', lat | float, lon | float) | float(999999) | round(1) }}
+              {% else %}
+                999999
+              {% endif %}
+            
+            # Format altitude for speech (e.g., "1500" becomes "1, 5, 0, 0")
+            spoken_altitude: "{{ alt_ft | int | string | list | join(', ') }}"
+        
+        # Check if altitude is within threshold
+        - condition: template
+          value_template: "{{ alt_ft > 0 and alt_ft <= max_alt }}"
+        
+        # Check if distance is within threshold
+        - condition: template
+          value_template: "{{ distance_miles <= max_distance_miles }}"
+        
+        # Don't announce the same aircraft twice in a row
+        - condition: template
+          value_template: "{{ callsign != last_callsign }}"
+        
+        # Make the announcement (CUSTOMIZE TTS AND MEDIA PLAYER)
+        - action: tts.speak
+          target:
+            entity_id: tts.piper  # CHANGE IF USING DIFFERENT TTS
+          data:
+            cache: true
+            media_player_entity_id: media_player.group_satellite_media_players  # CHANGE TO YOUR SPEAKERS
+            message: >
+              Aircraft {{ callsign }} is flying nearby at {{ spoken_altitude }} feet.
+        
+        # Save this callsign as the last announced
+        - action: input_text.set_value
+          target:
+            entity_id: input_text.adsb_last_announced_flight
+          data:
+            value: "{{ callsign }}"
+        
+        # Wait 5 seconds before processing next aircraft
+        - delay:
+            seconds: 5

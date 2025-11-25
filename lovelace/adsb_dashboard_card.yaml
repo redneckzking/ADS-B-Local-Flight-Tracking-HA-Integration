@@ -1,0 +1,234 @@
+# =============================================================================
+# ADS-B Dashboard Cards
+# =============================================================================
+# Beautiful animated dashboard cards for displaying aircraft tracking data.
+#
+# REQUIREMENTS:
+# - custom:button-card installed via HACS
+# - Template sensors configured
+# - Helpers created
+#
+# INSTALLATION:
+# Add this to your Lovelace dashboard in YAML mode, or use the UI editor
+# and paste this into a Manual card.
+# =============================================================================
+
+type: vertical-stack
+cards:
+  # ---------------------------------------------------------------------------
+  # Card 1: Local ADS-B Targets
+  # ---------------------------------------------------------------------------
+  # Shows count of aircraft within distance threshold with animated radar icon
+  # Calculates distance in real-time using Haversine formula
+  # ---------------------------------------------------------------------------
+  - type: custom:button-card
+    entity: sensor.adsb_local_aircraft_simplified
+    name: Local ADS-B Targets
+    show_state: true
+    show_label: true
+    icon: mdi:radar
+    tap_action:
+      action: more-info
+    styles:
+      card:
+        - height: 220px
+        - border-radius: 24px
+        - padding: 18px
+        - overflow: hidden
+        - position: relative
+        - background: |
+            [[[
+              const aircraft = entity.attributes.aircraft || [];
+              const homeZone = states['zone.home'];
+              const homeLat = parseFloat(homeZone.attributes.latitude);
+              const homeLon = parseFloat(homeZone.attributes.longitude);
+              const maxDist = parseFloat(states['input_number.adsb_distance_threshold'].state || "50");
+              
+              const withinRange = aircraft.filter(ac => {
+                if (!ac.lat || !ac.lon) return false;
+                const R = 3958.8;  // Earth radius in miles
+                const dLat = (ac.lat - homeLat) * Math.PI / 180;
+                const dLon = (ac.lon - homeLon) * Math.PI / 180;
+                const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                          Math.cos(homeLat * Math.PI / 180) * Math.cos(ac.lat * Math.PI / 180) *
+                          Math.sin(dLon/2) * Math.sin(dLon/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                const dist = R * c;
+                return dist <= maxDist;
+              }).length;
+              
+              if (withinRange > 0) {
+                return "radial-gradient(circle at center, rgba(0,255,120,0.25) 0, rgba(0,255,120,0.05) 45%, rgba(0,255,120,0.01) 70%, transparent 75%), #020915";
+              }
+              return "radial-gradient(circle at center, rgba(0,128,255,0.20) 0, rgba(0,128,255,0.05) 45%, rgba(0,128,255,0.01) 70%, transparent 75%), #020915";
+            ]]]
+        - box-shadow: 0 0 25px rgba(0,255,120,0.35)
+      icon:
+        - color: "#00ff99"
+        - width: 56px
+        - animation: |
+            [[[
+              const aircraft = entity.attributes.aircraft || [];
+              const homeZone = states['zone.home'];
+              const homeLat = parseFloat(homeZone.attributes.latitude);
+              const homeLon = parseFloat(homeZone.attributes.longitude);
+              const maxDist = parseFloat(states['input_number.adsb_distance_threshold'].state || "50");
+              
+              const withinRange = aircraft.filter(ac => {
+                if (!ac.lat || !ac.lon) return false;
+                const R = 3958.8;
+                const dLat = (ac.lat - homeLat) * Math.PI / 180;
+                const dLon = (ac.lon - homeLon) * Math.PI / 180;
+                const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                          Math.cos(homeLat * Math.PI / 180) * Math.cos(ac.lat * Math.PI / 180) *
+                          Math.sin(dLon/2) * Math.sin(dLon/2);
+                const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+                const dist = R * c;
+                return dist <= maxDist;
+              }).length;
+              
+              return withinRange > 0 ? "plane-fly 3s ease-in-out infinite" : "none";
+            ]]]
+      name:
+        - font-size: 24px
+        - font-weight: 600
+        - text-transform: uppercase
+        - letter-spacing: 0.15em
+        - color: "#e0fffe"
+      state:
+        - font-size: 40px
+        - font-weight: 700
+        - margin-top: 8px
+        - color: "#00ff99"
+      label:
+        - margin-top: 4px
+        - color: "#a0ffde"
+        - font-size: 14px
+    state_display: |
+      [[[
+        const aircraft = entity.attributes.aircraft || [];
+        const homeZone = states['zone.home'];
+        const homeLat = parseFloat(homeZone.attributes.latitude);
+        const homeLon = parseFloat(homeZone.attributes.longitude);
+        const maxDist = parseFloat(states['input_number.adsb_distance_threshold'].state || "50");
+        
+        const withinRange = aircraft.filter(ac => {
+          if (!ac.lat || !ac.lon) return false;
+          const R = 3958.8;
+          const dLat = (ac.lat - homeLat) * Math.PI / 180;
+          const dLon = (ac.lon - homeLon) * Math.PI / 180;
+          const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                    Math.cos(homeLat * Math.PI / 180) * Math.cos(ac.lat * Math.PI / 180) *
+                    Math.sin(dLon/2) * Math.sin(dLon/2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+          const dist = R * c;
+          return dist <= maxDist;
+        }).length;
+        
+        return withinRange;
+      ]]]
+    label: |
+      [[[
+        const aircraft = entity.attributes.aircraft || [];
+        const homeZone = states['zone.home'];
+        const homeLat = parseFloat(homeZone.attributes.latitude);
+        const homeLon = parseFloat(homeZone.attributes.longitude);
+        const maxDist = parseFloat(states['input_number.adsb_distance_threshold'].state || "50");
+        const maxDistKm = (maxDist * 1.60934).toFixed(1);
+        
+        const withinRange = aircraft.filter(ac => {
+          if (!ac.lat || !ac.lon) return false;
+          const R = 3958.8;
+          const dLat = (ac.lat - homeLat) * Math.PI / 180;
+          const dLon = (ac.lon - homeLon) * Math.PI / 180;
+          const a = Math.sin(dLat/2) * Math.sin(dLat/2) +
+                    Math.cos(homeLat * Math.PI / 180) * Math.cos(ac.lat * Math.PI / 180) *
+                    Math.sin(dLon/2) * Math.sin(dLon/2);
+          const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1-a));
+          const dist = R * c;
+          return dist <= maxDist;
+        }).length;
+        
+        if (withinRange === 0) return `No aircraft within ${maxDist} miles (${maxDistKm} km).`;
+        if (withinRange === 1) return `One aircraft within ${maxDist} miles (${maxDistKm} km).`;
+        return `${withinRange} aircraft within ${maxDist} miles (${maxDistKm} km).`;
+      ]]]
+    extra_styles: |
+      @keyframes plane-fly {
+        0%   { transform: translateX(-8px) translateY(0px) rotate(-10deg); }
+        50%  { transform: translateX(8px)  translateY(-3px) rotate(5deg);  }
+        100% { transform: translateX(-8px) translateY(0px) rotate(-10deg); }
+      }
+
+  # ---------------------------------------------------------------------------
+  # Card 2: Flights Below Threshold
+  # ---------------------------------------------------------------------------
+  # Shows count of aircraft below altitude threshold with alert styling
+  # ---------------------------------------------------------------------------
+  - type: custom:button-card
+    entity: sensor.adsb_aircraft_below_filter_altitude
+    name: Flights Below Threshold
+    show_state: true
+    show_label: true
+    icon: mdi:airplane-alert
+    tap_action:
+      action: more-info
+    styles:
+      card:
+        - height: 220px
+        - border-radius: 24px
+        - padding: 18px
+        - overflow: hidden
+        - position: relative
+        - background: |
+            [[[
+              const n = parseInt(entity.state || "0", 10);
+              if (n > 0) {
+                return "radial-gradient(circle at center, rgba(255,100,100,0.25) 0, rgba(255,100,100,0.05) 45%, rgba(255,100,100,0.01) 70%, transparent 75%), #020915";
+              }
+              return "radial-gradient(circle at center, rgba(0,128,255,0.20) 0, rgba(0,128,255,0.05) 45%, rgba(0,128,255,0.01) 70%, transparent 75%), #020915";
+            ]]]
+        - box-shadow: 0 0 25px rgba(255,100,100,0.35)
+      icon:
+        - color: "#ff7777"
+        - width: 56px
+      name:
+        - font-size: 24px
+        - font-weight: 600
+        - text-transform: uppercase
+        - letter-spacing: 0.15em
+        - color: "#ffeaea"
+      state:
+        - font-size: 40px
+        - font-weight: 700
+        - margin-top: 8px
+        - color: "#ff7777"
+      label:
+        - margin-top: 4px
+        - color: "#ffcccc"
+        - font-size: 14px
+    label: |
+      [[[
+        const n = parseInt(entity.state || "0", 10);
+        const helper = states['input_number.adsb_altitude_threshold'];
+        const maxAlt = helper && helper.state ? parseInt(helper.state, 10) : 0;
+        const altText = maxAlt ? `${maxAlt.toLocaleString()} ft` : "set altitude";
+        if (n === 0) return `No local aircraft below ${altText}.`;
+        if (n === 1) return `1 aircraft below ${altText}.`;
+        return `${n} aircraft below ${altText}.`;
+      ]]]
+
+  # ---------------------------------------------------------------------------
+  # Card 3: Settings Panel
+  # ---------------------------------------------------------------------------
+  # Easy access to configure thresholds and toggle announcements
+  # ---------------------------------------------------------------------------
+  - type: entities
+    title: Local ADS-B Settings
+    entities:
+      - entity: input_number.adsb_altitude_threshold
+        name: Altitude Threshold
+      - entity: input_number.adsb_distance_threshold
+        name: Distance Threshold
+      - entity: input_boolean.adsb_announcements_enabled
+        name: ADS-B announcements enabled
