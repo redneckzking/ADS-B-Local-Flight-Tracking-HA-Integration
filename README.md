@@ -1,10 +1,11 @@
 # ADS-B Local Flight Tracking for Home Assistant
 
+```markdown
 ![GitHub release](https://img.shields.io/github/v/release/redneckzking/ADS-B-Local-Flight-Tracking-HA-Integration)
 ![GitHub issues](https://img.shields.io/github/issues/redneckzking/ADS-B-Local-Flight-Tracking-HA-Integration)
 ![GitHub stars](https://img.shields.io/github/stars/redneckzking/ADS-B-Local-Flight-Tracking-HA-Integration)
 ![License](https://img.shields.io/github/license/redneckzking/ADS-B-Local-Flight-Tracking-HA-Integration)
-
+```
 Track and announce aircraft flying near your home using your local ADS-B receiver (tar1090) with Home Assistant.
 
 ![Dashboard Preview](docs/screenshots/dashboard.png)
